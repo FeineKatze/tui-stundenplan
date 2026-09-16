@@ -1,12 +1,12 @@
+use core::fmt;
 use crossterm::event::{
     self,
-    Event::Key,
     KeyCode::{self},
 };
 use ratatui::{
     DefaultTerminal, Frame,
     layout::{Constraint, Layout, Rect, Spacing},
-    style::{Color, Modifier, Style, Stylize},
+    style::{Color, Style, Stylize},
     symbols::{self, merge::MergeStrategy},
     text::{Line, Span, Text},
     widgets::{Block, Borders, Cell, Clear, Padding, Paragraph, Row, Table, TableState, Tabs},
@@ -37,10 +37,6 @@ impl Period {
         }
     }
 
-    fn to_string(&self) -> String {
-        format!("{}-{}", self.first_time, self.second_time)
-    }
-
     fn to_line_string(&self) -> String {
         format!("{}-\n{}", self.first_time, self.second_time)
     }
@@ -59,6 +55,12 @@ impl Period {
         };
 
         Text::from(Line::from(vec![first_time, Span::raw("-"), second_time]))
+    }
+}
+
+impl fmt::Display for Period {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}-{}", self.first_time, self.second_time)
     }
 }
 
@@ -146,6 +148,7 @@ enum Column {
     Friday,
 }
 
+#[allow(dead_code)]
 struct App {
     selected_tab: usize,
     save_file: String,
