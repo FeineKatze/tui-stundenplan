@@ -165,7 +165,7 @@ struct App {
     index_subjects: Vec<String>,
     index_rooms: Vec<String>,
     index_teachers: Vec<String>,
-    color: String,
+    color: Color,
 }
 
 const COLUMNS: [Column; 6] = [
@@ -206,7 +206,7 @@ impl App {
             index_subjects: vec![],
             index_rooms: vec![],
             index_teachers: vec![],
-            color: String::from("#00ff00"),
+            color: Color::Rgb(0, 0, 0),
         }
     }
 
@@ -369,8 +369,6 @@ impl App {
                                         self.edit_mode = true;
                                     }
                                 }
-                                // KeyCode::Left => self.state_settings.select_previous_column(),
-                                // KeyCode::Right => self.state_settings.select_next_column(),
                                 KeyCode::Down => self.state_settings.select_next(),
                                 KeyCode::Up => self.state_settings.select_previous(),
                                 _ => {}
@@ -436,12 +434,78 @@ impl App {
                         KeyCode::Tab => {
                             self.selected_create_tab = (self.selected_create_tab + 1) % 3
                         }
-                        KeyCode::Up => {
-                            self.state_create_table.select_previous();
-                        }
-                        KeyCode::Down => {
-                            self.state_create_table.select_next();
-                        }
+                        KeyCode::Up => match self.state_create_table.selected_column() {
+                            Some(1) => {
+                                self.state_create_table.select_previous();
+                            }
+                            Some(3) => {
+                                if let Color::Rgb(r, g, b) = self.color {
+                                    self.color =
+                                        Color::Rgb((r as i16 + 1).clamp(0, 255) as u8, g, b);
+                                }
+                            }
+                            Some(4) => {
+                                if let Color::Rgb(r, g, b) = self.color {
+                                    self.color =
+                                        Color::Rgb(r, (g as i16 + 1).clamp(0, 255) as u8, b);
+                                }
+                            }
+                            Some(5) => {
+                                if let Color::Rgb(r, g, b) = self.color {
+                                    self.color =
+                                        Color::Rgb(r, g, (b as i16 + 1).clamp(0, 255) as u8);
+                                }
+                            }
+                            _ => {}
+                        },
+                        KeyCode::Down => match self.state_create_table.selected_column() {
+                            Some(1) => {
+                                self.state_create_table.select_next();
+                            }
+                            Some(3) => {
+                                if let Color::Rgb(r, g, b) = self.color {
+                                    self.color =
+                                        Color::Rgb((r as i16 - 1).clamp(0, 255) as u8, g, b);
+                                }
+                            }
+                            Some(4) => {
+                                if let Color::Rgb(r, g, b) = self.color {
+                                    self.color =
+                                        Color::Rgb(r, (g as i16 - 1).clamp(0, 255) as u8, b);
+                                }
+                            }
+                            Some(5) => {
+                                if let Color::Rgb(r, g, b) = self.color {
+                                    self.color =
+                                        Color::Rgb(r, g, (b as i16 - 1).clamp(0, 255) as u8);
+                                }
+                            }
+                            _ => {}
+                        },
+                        KeyCode::Right => match self.state_create_table.selected_column() {
+                            Some(1) => {
+                                self.state_create_table.select_column(Some(3));
+                            }
+                            Some(3) => {
+                                self.state_create_table.select_column(Some(4));
+                            }
+                            Some(4) => {
+                                self.state_create_table.select_column(Some(5));
+                            }
+                            _ => {}
+                        },
+                        KeyCode::Left => match self.state_create_table.selected_column() {
+                            Some(5) => {
+                                self.state_create_table.select_column(Some(4));
+                            }
+                            Some(4) => {
+                                self.state_create_table.select_column(Some(3));
+                            }
+                            Some(3) => {
+                                self.state_create_table.select_column(Some(1));
+                            }
+                            _ => {}
+                        },
                         KeyCode::Enter if self.state_create_table.selected() != Some(3) => {
                             match self.state_create_table.selected() {
                                 Some(0) => {
@@ -495,18 +559,16 @@ impl App {
         }
     }
 
-    fn color_from_hex(n: String) -> Color {
-        if n.len() != 7 {
-            return Color::Black;
+    fn color_to_parts(col: Color) -> [String; 3] {
+        if let Color::Rgb(r, g, b) = col {
+            [
+                format!("{:02x}", r),
+                format!("{:02x}", g),
+                format!("{:02x}", b),
+            ]
+        } else {
+            ["00".to_string(), "00".to_string(), "00".to_string()]
         }
-        let mut hex = n.clone();
-        let _x = hex.remove(0);
-        let (r_hex, rest) = hex.split_at(2);
-        let (g_hex, b_hex) = rest.split_at(2);
-        let r = u8::from_str_radix(r_hex, 16).unwrap();
-        let g = u8::from_str_radix(g_hex, 16).unwrap();
-        let b = u8::from_str_radix(b_hex, 16).unwrap();
-        Color::Rgb(r, g, b)
     }
 
     fn contrasting_fg(bg: Color) -> Color {
@@ -577,23 +639,6 @@ impl App {
         self.render_tabs(frame, left, selected_tab);
         self.render_info(frame, right);
         self.render_keybinds(frame, bottom);
-
-        // let selected = self
-        //     .state_settings
-        //     .selected()
-        //     .unwrap_or(0)
-        //     .try_into()
-        //     .unwrap_or(0);
-        // frame.render_widget(
-        //     Paragraph::new(self.times[selected].1.to_line_string()),
-        //     middle,
-        // );
-        // let last_time: String = self
-        //     .edit_buf
-        //     .chars()
-        //     .skip(self.edit_buf.chars().count().saturating_sub(5))
-        //     .collect();
-        // frame.render_widget(Paragraph::new(last_time), _middle);
 
         match self.selected_tab {
             0 => {
@@ -700,53 +745,91 @@ impl App {
             Constraint::Length(1),
         ]);
         let [_top, center, _bottom] = area.layout(&vertical);
+        let horizontal_center = Layout::horizontal([
+            Constraint::Length(1),
+            Constraint::Fill(1),
+            Constraint::Length(1),
+        ]);
+        let [_cent_left, center_center, _cent_right] = center.layout(&horizontal_center);
         let horizontal = Layout::horizontal([
             Constraint::Length(1),
             Constraint::Fill(1),
             Constraint::Length(8),
             Constraint::Length(8),
+            Constraint::Length(1),
         ]);
-        let [_right, main_right, main_left, _left] = center.layout(&horizontal);
+        let [_left, _main_left, col_right, _space_right, _right] = center.layout(&horizontal);
         let is_editing = self.edit_mode;
+        let [red, green, blue] = App::color_to_parts(self.color);
         let rows = [
             Row::new([
                 "Name:".to_string(),
                 if is_editing && self.state_create_table.selected() == Some(0) {
-                    format!("{}_", self.edit_buf)
+                    format!("{}_ ", self.edit_buf)
                 } else {
                     self.temp_subject.name.clone()
                 },
+                "#".to_string(),
+                red,
+                green,
+                blue,
+                "".to_string(),
+                "".to_string(),
             ]),
             Row::new([
                 "Room:".to_string(),
                 if is_editing && self.state_create_table.selected() == Some(1) {
-                    format!("{}_", self.edit_buf)
+                    format!("{}_ ", self.edit_buf)
                 } else {
                     self.temp_subject.room.clone()
                 },
+                "".to_string(),
+                "".to_string(),
+                "".to_string(),
+                "".to_string(),
+                "".to_string(),
+                "".to_string(),
             ]),
             Row::new([
                 "Teacher:".to_string(),
                 if is_editing && self.state_create_table.selected() == Some(2) {
-                    format!("{}_", self.edit_buf)
+                    format!("{}_ ", self.edit_buf)
                 } else {
                     self.temp_subject.teacher.clone()
                 },
+                "".to_string(),
+                "".to_string(),
+                "".to_string(),
+                "".to_string(),
+                "".to_string(),
+                "".to_string(),
             ]),
-            Row::new(["", "Submit"]),
+            Row::new(["", "Submit", "", "", "", "", "", ""]),
         ];
-        let table = Table::new(rows, [Constraint::Length(9), Constraint::Fill(1)])
-            .cell_highlight_style(Style::new().magenta().not_dim());
-        frame.render_stateful_widget(table, main_right, &mut self.state_create_table);
+        let table = Table::new(
+            rows,
+            [
+                Constraint::Length(10),
+                Constraint::Fill(1),
+                Constraint::Length(1),
+                Constraint::Length(2),
+                Constraint::Length(2),
+                Constraint::Length(2),
+                Constraint::Length(1),
+                Constraint::Length(8),
+            ],
+        )
+        .cell_highlight_style(Style::new().magenta().not_dim())
+        .column_spacing(0);
         frame.render_widget(block, area);
-        let bg_color = App::color_from_hex(self.color.clone());
+        let bg_color = self.color;
         frame.render_widget(
-            Paragraph::new(self.color.clone())
+            Paragraph::default()
                 .fg(App::contrasting_fg(bg_color))
                 .block(Block::new().bg(bg_color)),
-            //Block::new().bg(App::color_from_hex(self.color.clone())),
-            main_left,
+            col_right,
         );
+        frame.render_stateful_widget(table, center_center, &mut self.state_create_table);
     }
 
     fn render_scroll_indicators(&mut self, frame: &mut Frame, area: Rect) {
