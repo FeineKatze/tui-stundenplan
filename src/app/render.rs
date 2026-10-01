@@ -1,10 +1,10 @@
 use ratatui::{
     Frame,
-    layout::{Constraint, Layout, Rect, Spacing},
+    layout::{Constraint, Layout, Rect, Rows, Spacing},
     style::{Color, Style, Stylize},
     symbols::{self, merge::MergeStrategy},
     text::Line,
-    widgets::{Block, Borders, Cell, Clear, Padding, Paragraph, Row, Table, Tabs},
+    widgets::{Block, Borders, Cell, Clear, Padding, Paragraph, Row, Table, TableState, Tabs},
 };
 
 use crate::{
@@ -317,6 +317,14 @@ impl App {
     }
 
     fn render_settings(&mut self, frame: &mut Frame, area: Rect) {
+        let horizontal =
+            Layout::horizontal([Constraint::Length(19), Constraint::Fill(1)]).spacing(1);
+        let [right, left] = area.layout(&horizontal);
+        self.render_settings_time(frame, right);
+        self.render_settings_autotime(frame, left);
+    }
+
+    fn render_settings_time(&mut self, frame: &mut Frame, area: Rect) {
         let rows: Vec<Row> = self
             .times
             .iter()
@@ -339,11 +347,16 @@ impl App {
             .block(Block::bordered().padding(Padding::horizontal(1)));
 
         let table_height = self.times.len() as u16 + 2;
-        let table_width = 19;
         let vertical = Layout::vertical([Constraint::Length(table_height), Constraint::Fill(1)]);
         let [row_area, _rest] = area.layout(&vertical);
-        let horizontal = Layout::horizontal([Constraint::Length(table_width), Constraint::Fill(1)]);
-        let [table_area, _right] = row_area.layout(&horizontal);
-        frame.render_stateful_widget(table, table_area, &mut self.state_settings);
+        frame.render_stateful_widget(table, row_area, &mut self.state_settings);
+    }
+
+    fn render_settings_autotime(&mut self, frame: &mut Frame, area: Rect) {
+        frame.render_stateful_widget(
+            Table::new([Row::new(["dad"])], [Constraint::Fill(1)]).block(Block::bordered()),
+            area,
+            &mut TableState::new(),
+        );
     }
 }
