@@ -1,0 +1,19 @@
+# Copy to <your-app-repo>/.github/workflows/release.yml
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    uses: FeineKatze/release-workflows/.github/workflows/release-rust.yml@v1
+    with:
+      binary-name: tui-stundenplan
+      # toolchain: stable
+      # working-directory: "."
+      # cargo-args: "--features foo"
+      # draft: false
