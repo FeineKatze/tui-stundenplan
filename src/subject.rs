@@ -1,16 +1,22 @@
 use std::str::FromStr;
 
 use ratatui::{
-    style::Stylize,
+    style::{Color, Stylize},
     text::{Line, Text},
 };
 use serde::{Deserialize, Serialize};
+
+fn default_color() -> Color {
+    Color::Reset
+}
 
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Subject {
     pub name: String,
     pub room: String,
     pub teacher: String,
+    #[serde(default = "default_color")]
+    pub color: Color,
 }
 
 impl Subject {
@@ -19,6 +25,7 @@ impl Subject {
             name: String::from("None"),
             room: String::from("None"),
             teacher: String::from("None"),
+            color: Color::Reset,
         }
     }
 
@@ -53,6 +60,7 @@ impl FromStr for Subject {
             name: parts[0].to_string(),
             room: parts[1].to_string(),
             teacher: "None".to_string(),
+            color: Color::Reset,
         })
     }
 }

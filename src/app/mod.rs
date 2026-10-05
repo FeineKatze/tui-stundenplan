@@ -30,6 +30,8 @@ pub struct App {
     pub index_rooms: Vec<String>,
     pub index_teachers: Vec<String>,
     pub color: Color,
+    pub blend_highlight: bool,
+    pub state_toggles: TableState,
 }
 
 impl App {
@@ -62,6 +64,10 @@ impl App {
             index_rooms: vec![],
             index_teachers: vec![],
             color: Color::Rgb(0, 0, 0),
+            blend_highlight: false,
+            state_toggles: TableState::default()
+                .with_selected(None)
+                .with_selected_column(Some(0)),
         }
     }
 

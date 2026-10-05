@@ -1,9 +1,9 @@
 use ratatui::{
     Frame,
-    layout::{Constraint, Layout, Rect, Rows, Spacing},
-    style::{Color, Style, Stylize},
+    layout::{Constraint, Layout, Rect, Spacing},
+    style::{Color, Style, Styled, Stylize},
     symbols::{self, merge::MergeStrategy},
-    text::Line,
+    text::{Line, Text},
     widgets::{Block, Borders, Cell, Clear, Padding, Paragraph, Row, Table, TableState, Tabs},
 };
 
@@ -163,7 +163,7 @@ impl App {
         ]);
         let [_left, _main_left, col_right, _space_right, _right] = center.layout(&horizontal);
         let is_editing = self.edit_mode;
-        let [red, green, blue] = App::color_to_parts(self.color);
+        let [red, green, blue] = App::color_to_parts(self.temp_subject.color);
         let rows = [
             Row::new([
                 "Name:".to_string(),
@@ -225,7 +225,7 @@ impl App {
         .cell_highlight_style(Style::new().magenta().not_dim())
         .column_spacing(0);
         frame.render_widget(block, area);
-        let bg_color = self.color;
+        let bg_color = self.temp_subject.color;
         frame.render_widget(
             Paragraph::default()
                 .fg(App::contrasting_fg(bg_color))
@@ -260,12 +260,19 @@ impl App {
     }
 
     fn render_table(&mut self, frame: &mut Frame, area: Rect) {
-        let selected_row = self.state_table.selected();
+        let last_row = self.times.len().saturating_sub(1);
+        let selected_row = self.state_table.selected().map(|r| r.min(last_row));
         let selected_col = self.state_table.selected_column();
 
         let rows: Vec<Row> = (1u8..=11)
             .map(|row_num| {
                 let time_cell = Cell::from(self.times[row_num as usize - 1].1.to_line_string());
+
+                let zebra = if row_num % 2 == 0 {
+                    Color::Rgb(30, 30, 30)
+                } else {
+                    Color::Rgb(10, 10, 10)
+                };
 
                 let subject_cells: Vec<Cell> = COLUMNS
                     .iter()
@@ -283,10 +290,23 @@ impl App {
                             && selected_col == Some(col_idx)
                             && !self.create_popup;
 
-                        if is_editing {
-                            Cell::from(format!("{}_", self.edit_buf))
+                        let base = if subject.name == "None" || subject.color == Color::Reset {
+                            zebra
                         } else {
-                            Cell::from(subject.to_text())
+                            subject.color
+                        };
+
+                        let bg =
+                            if self.blend_highlight && selected_row == Some(row_num as usize - 1) {
+                                blend(base, Color::Rgb(255, 255, 255), 0.2)
+                            } else {
+                                base
+                            };
+
+                        if is_editing {
+                            Cell::from(format!("{}_", self.edit_buf)).style(Style::new().bg(bg))
+                        } else {
+                            Cell::from(subject.to_text()).style(Style::new().bg(bg))
                         }
                     })
                     .collect();
@@ -307,11 +327,14 @@ impl App {
         let mut constraints = vec![Constraint::Length(7)];
         constraints.extend([Constraint::Fill(1); 5]);
 
-        let table = Table::new(rows, constraints)
+        let mut table = Table::new(rows, constraints)
             .cell_highlight_style(Style::new().magenta().not_dim())
             .block(Block::bordered().merge_borders(MergeStrategy::Exact))
-            .row_highlight_style(Style::new().bg(Color::Rgb(0, 0, 50)))
             .header(day_row.bold().bg(Color::Rgb(30, 30, 30)));
+
+        if !self.blend_highlight {
+            table = table.row_highlight_style(Style::new().bg(Color::Rgb(0, 0, 50)))
+        }
 
         frame.render_stateful_widget(table, area, &mut self.state_table);
     }
@@ -319,9 +342,23 @@ impl App {
     fn render_settings(&mut self, frame: &mut Frame, area: Rect) {
         let horizontal =
             Layout::horizontal([Constraint::Length(19), Constraint::Fill(1)]).spacing(1);
-        let [right, left] = area.layout(&horizontal);
-        self.render_settings_time(frame, right);
-        self.render_settings_autotime(frame, left);
+        let [left, right] = area.layout(&horizontal);
+        let vertical = Layout::vertical([Constraint::Length(13), Constraint::Fill(1)]);
+        let [left_top, left_bottom] = left.layout(&vertical);
+        self.render_settings_time(frame, left_top);
+        self.render_settings_autotime(frame, right);
+        self.render_toggles(frame, left_bottom);
+    }
+
+    fn render_toggles(&mut self, frame: &mut Frame, area: Rect) {
+        let rows = [
+            Row::new(["Highlight style".to_string()]),
+            Row::new([Text::from(self.blend_highlight.to_string()).centered()]),
+        ];
+        let table = Table::new(rows, [Constraint::Fill(1)])
+            .block(Block::bordered().padding(Padding::horizontal(1)))
+            .cell_highlight_style(Style::new().magenta());
+        frame.render_stateful_widget(table, area, &mut self.state_toggles);
     }
 
     fn render_settings_time(&mut self, frame: &mut Frame, area: Rect) {
@@ -346,10 +383,7 @@ impl App {
             .cell_highlight_style(Style::new().magenta())
             .block(Block::bordered().padding(Padding::horizontal(1)));
 
-        let table_height = self.times.len() as u16 + 2;
-        let vertical = Layout::vertical([Constraint::Length(table_height), Constraint::Fill(1)]);
-        let [row_area, _rest] = area.layout(&vertical);
-        frame.render_stateful_widget(table, row_area, &mut self.state_settings);
+        frame.render_stateful_widget(table, area, &mut self.state_settings);
     }
 
     fn render_settings_autotime(&mut self, frame: &mut Frame, area: Rect) {
@@ -358,5 +392,14 @@ impl App {
             area,
             &mut TableState::new(),
         );
+    }
+}
+fn blend(base: Color, overlay: Color, t: f32) -> Color {
+    match (base, overlay) {
+        (Color::Rgb(r1, g1, b1), Color::Rgb(r2, g2, b2)) => {
+            let mix = |a: u8, b: u8| (a as f32 * (1.0 - t) + b as f32 * t).round() as u8;
+            Color::Rgb(mix(r1, r2), mix(g1, g2), mix(b1, b2))
+        }
+        _ => overlay,
     }
 }

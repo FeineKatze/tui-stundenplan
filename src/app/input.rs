@@ -28,10 +28,20 @@ impl App {
                                 }
                                 self.create_popup = !self.create_popup;
                                 self.state_create_table.select_column(Some(1));
-                                self.color = Color::Rgb(0, 0, 0);
-                                if self.temp_subject.name == "None" {
+                                self.state_create_table.select(Some(0));
+                                if self.temp_subject.name.clone() == "None" {
+                                    self.state_create_table.select(Some(0));
                                     self.edit_mode = true;
+                                } else if self.temp_subject.room.clone() == "None" {
+                                    self.state_create_table.select(Some(1));
+                                    self.edit_mode = true;
+                                } else if self.temp_subject.teacher.clone() == "None" {
+                                    self.state_create_table.select(Some(2));
+                                    self.edit_mode = true;
+                                } else {
+                                    self.state_create_table.select(Some(3));
                                 }
+                                self.color = Color::Rgb(0, 0, 0);
                             }
                             KeyCode::Left => {
                                 self.state_table.select_previous_column();
@@ -148,9 +158,26 @@ impl App {
                                     }
                                     self.edit_mode = true;
                                 }
+                                if self.state_toggles.selected() == Some(1) {
+                                    self.blend_highlight = !self.blend_highlight;
+                                }
                             }
-                            KeyCode::Down => self.state_settings.select_next(),
-                            KeyCode::Up => self.state_settings.select_previous(),
+                            KeyCode::Down => {
+                                if matches!(self.state_settings.selected(), Some(0..=9)) {
+                                    self.state_settings.select_next()
+                                } else {
+                                    self.state_settings.select(None);
+                                    self.state_toggles.select(Some(1));
+                                }
+                            }
+                            KeyCode::Up => {
+                                if self.state_toggles.selected() == Some(1) {
+                                    self.state_toggles.select(None);
+                                    self.state_settings.select(Some(11));
+                                } else {
+                                    self.state_settings.select_previous();
+                                }
+                            }
                             _ => {}
                         },
                         2 => {}
@@ -217,19 +244,22 @@ impl App {
                             self.state_create_table.select_previous();
                         }
                         Some(3) => {
-                            if let Color::Rgb(r, g, b) = self.color {
+                            if let Color::Rgb(r, g, b) = self.temp_subject.color {
                                 self.color = Color::Rgb((r as i16 + 1).clamp(0, 255) as u8, g, b);
                             }
+                            self.temp_subject.color = self.color;
                         }
                         Some(4) => {
-                            if let Color::Rgb(r, g, b) = self.color {
+                            if let Color::Rgb(r, g, b) = self.temp_subject.color {
                                 self.color = Color::Rgb(r, (g as i16 + 1).clamp(0, 255) as u8, b);
                             }
+                            self.temp_subject.color = self.color;
                         }
                         Some(5) => {
-                            if let Color::Rgb(r, g, b) = self.color {
+                            if let Color::Rgb(r, g, b) = self.temp_subject.color {
                                 self.color = Color::Rgb(r, g, (b as i16 + 1).clamp(0, 255) as u8);
                             }
+                            self.temp_subject.color = self.color;
                         }
                         _ => {}
                     },
@@ -238,38 +268,40 @@ impl App {
                             self.state_create_table.select_next();
                         }
                         Some(3) => {
-                            if let Color::Rgb(r, g, b) = self.color {
+                            if let Color::Rgb(r, g, b) = self.temp_subject.color {
                                 self.color = Color::Rgb((r as i16 - 1).clamp(0, 255) as u8, g, b);
                             }
+                            self.temp_subject.color = self.color;
                         }
                         Some(4) => {
-                            if let Color::Rgb(r, g, b) = self.color {
+                            if let Color::Rgb(r, g, b) = self.temp_subject.color {
                                 self.color = Color::Rgb(r, (g as i16 - 1).clamp(0, 255) as u8, b);
                             }
+                            self.temp_subject.color = self.color;
                         }
                         Some(5) => {
-                            if let Color::Rgb(r, g, b) = self.color {
+                            if let Color::Rgb(r, g, b) = self.temp_subject.color {
                                 self.color = Color::Rgb(r, g, (b as i16 - 1).clamp(0, 255) as u8);
                             }
+                            self.temp_subject.color = self.color;
                         }
                         _ => {}
                     },
-                    KeyCode::Right => {
-                        if self.state_create_table.selected() == Some(0) {
-                            match self.state_create_table.selected_column() {
-                                Some(1) => {
-                                    self.state_create_table.select_column(Some(3));
-                                }
-                                Some(3) => {
-                                    self.state_create_table.select_column(Some(4));
-                                }
-                                Some(4) => {
-                                    self.state_create_table.select_column(Some(5));
-                                }
-                                _ => {}
-                            }
+                    KeyCode::Right => match self.state_create_table.selected_column() {
+                        Some(1) => {
+                            self.state_create_table.select_column(Some(3));
+                            self.state_create_table.select(Some(0));
                         }
-                    }
+                        Some(3) => {
+                            self.state_create_table.select_column(Some(4));
+                            self.state_create_table.select(Some(0));
+                        }
+                        Some(4) => {
+                            self.state_create_table.select_column(Some(5));
+                            self.state_create_table.select(Some(0));
+                        }
+                        _ => {}
+                    },
                     KeyCode::Left => match self.state_create_table.selected_column() {
                         Some(5) => {
                             self.state_create_table.select_column(Some(4));
